@@ -30,7 +30,7 @@ function Admin() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post(`${API_BASE_URL}/auth/admin/users', {
+      const res = await axios.post(`${API_BASE_URL}/admin/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(res.data.users);
