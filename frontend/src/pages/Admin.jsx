@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +30,7 @@ function Admin() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('/api/auth/admin/users', {
+      const res = await axios.get('/auth/admin/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(res.data.users);

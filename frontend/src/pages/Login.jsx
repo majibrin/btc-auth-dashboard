@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import API_BASE_URL from '../config/api';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -13,9 +14,8 @@ function Login() {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      const res = await axios.post('/api/auth/login', {
+      const res = await axios.post(`${API_BASE_URL}/auth/login`, {
         email,
         password
       });
@@ -65,8 +65,8 @@ function Login() {
           />
         </div>
         
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={loading}
           style={{ width: '100%', padding: '10px', background: '#007bff', color: 'white', border: 'none' }}
         >
@@ -74,14 +74,13 @@ function Login() {
         </button>
       </form>
       
-      <button 
+      <button
         onClick={() => navigate('/register')}
         style={{ marginTop: '10px', width: '100%', padding: '10px' }}
       >
         Don't have account? Register
       </button>
     </div>
-   
   );
 }
 

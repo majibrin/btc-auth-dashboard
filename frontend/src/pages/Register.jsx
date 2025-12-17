@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import API_BASE_URL from '../config/api';
 
 function Register() {
   const [form, setForm] = useState({
@@ -23,15 +24,15 @@ function Register() {
     setLoading(true);
     setError('');
     setSuccess('');
-
+    
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
       return;
     }
-
+    
     try {
-      const res = await axios.post('/api/auth/register', {
+      const res = await axios.post(`${API_BASE_URL}/auth/register`, {
         username: form.username,
         email: form.email,
         password: form.password
@@ -107,8 +108,8 @@ function Register() {
           />
         </div>
         
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={loading}
           style={{ width: '100%', padding: '10px', background: '#28a745', color: 'white', border: 'none' }}
         >
@@ -116,7 +117,7 @@ function Register() {
         </button>
       </form>
       
-      <button 
+      <button
         onClick={() => navigate('/login')}
         style={{ marginTop: '10px', width: '100%', padding: '10px' }}
       >
