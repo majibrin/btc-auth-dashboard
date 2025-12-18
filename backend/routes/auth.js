@@ -109,7 +109,7 @@ router.post('/login', async (req, res) => {
 // BTC Price 
 
 // BTC Price - Using working API
-router.get('/btc-price', async (req, res) => {
+/*router.get('/btc-price', async (req, res) => {
   console.log('📡 Fetching BTC price...');
   
   try {
@@ -163,6 +163,88 @@ router.get('/btc-price', async (req, res) => {
     message: 'Real price when deployed'
   });
 });
+
+*/
+
+// BTC Price - Using CoinGecko first (confirmed working on Render)
+router.get('/btc-price', async (req, res) => {
+  console.log('📡 Fetching BTC price...');
+
+  try {
+    // FIRST: Try CoinGecko (confirmed working)
+    const geckoRes = await axios.get(
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd',
+      { timeout: 3000 }
+    );
+
+    if (geckoRes.data?.bitcoin?.usd) {
+      return res.json({
+        success: true,
+        price: parseFloat(geckoRes.data.bitcoin.usd).toFixed(2),
+        currency: 'USD',
+        source: 'CoinGecko',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (geckoError) {
+    console.log('CoinGecko failed, trying Binance...');
+  }
+
+  try {
+    // SECOND: Try Binance
+    const binanceRes = await axios.get(
+      'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
+      { timeout: 3000 }
+    );
+
+    if (binanceRes.data?.price) {
+      return res.json({
+        success: true,
+        price: parseFloat(binanceRes.data.price).toFixed(2),
+        currency: 'USD',
+        source: 'Binance',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (binanceError) {
+    console.log('Binance failed, trying CoinCap...');
+  }
+
+  try {
+    // THIRD: Try CoinCap
+    const coincapRes = await axios.get(
+      'https://api.coincap.io/v2/assets/bitcoin',
+      { timeout: 3000 }
+    );
+
+    if (coincapRes.data?.data?.priceUsd) {
+      return res.json({
+        success: true,
+        price: parseFloat(coincapRes.data.data.priceUsd).toFixed(2),
+        currency: 'USD',
+        source: 'CoinCap',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (coincapError) {
+    console.log('All APIs failed, using realistic mock');
+  }
+
+  // Final fallback: Realistic mock based on current ~$87K
+  const basePrice = 87000;
+  const randomChange = (Math.random() * 1000) - 500;
+  const currentPrice = basePrice + randomChange;
+
+  res.json({
+    success: true,
+    price: currentPrice.toFixed(2),
+    currency: 'USD',
+    source: 'Mock (APIs temporarily blocked)',
+    message: 'Returns real-time price when APIs work',
+    timestamp: new Date().toISOString()
+  });
+});
+
 
 // Get all users (admin)
 router.get('/admin/users', async (req, res) => {
