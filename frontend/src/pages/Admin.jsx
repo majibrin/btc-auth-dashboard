@@ -1,4 +1,4 @@
-import API_BASE_URL from '../config/api.js';
+import API_BASE_URL from '../config/api';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -12,30 +12,32 @@ function Admin() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
-    
+
     if (!token || !userData) {
       navigate('/login');
       return;
     }
-    
+
     const user = JSON.parse(userData);
     if (user.role !== 'admin') {
       navigate('/dashboard');
       return;
     }
-    
+
     fetchUsers();
   }, [navigate]);
 
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/auth/admin/users`, {}, 
-      { headers: { Authorization: `Bearer ${token}` }
+      // FIXED: Correct axios.get() syntax
+      const res = await axios.get(`${API_BASE_URL}/auth/admin/users`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('Admin API Response:', res.data); // Debug log
       setUsers(res.data.users);
     } catch (err) {
-      console.log('Failed to fetch users');
+      console.log('Failed to fetch users:', err.response?.data || err.message);
     } finally {
       setLoading(false);
     }
@@ -62,13 +64,13 @@ function Admin() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Admin Panel</h1>
         <div>
-          <button 
+          <button
             onClick={() => navigate('/dashboard')}
             style={{ marginRight: '10px', padding: '8px 15px' }}
           >
             Dashboard
           </button>
-          <button 
+          <button
             onClick={handleLogout}
             style={{ padding: '8px 15px', background: '#dc3545', color: 'white', border: 'none' }}
           >
@@ -76,16 +78,16 @@ function Admin() {
           </button>
         </div>
       </div>
-      
+
       <div style={{ marginTop: '20px' }}>
         <h2>All Users ({users.length})</h2>
-        <button 
+        <button
           onClick={fetchUsers}
           style={{ marginBottom: '20px', padding: '8px 15px', background: '#007bff', color: 'white', border: 'none' }}
         >
           Refresh Users
         </button>
-        
+
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -127,7 +129,7 @@ function Admin() {
                     {user.signupInfo?.signupDate ? formatDate(user.signupInfo.signupDate) : 'N/A'}
                   </td>
                   <td style={{ padding: '12px' }}>
-                    <button 
+                    <button
                       onClick={() => handleUserClick(user)}
                       style={{ padding: '6px 12px', marginRight: '5px', background: '#17a2b8', color: 'white', border: 'none' }}
                     >
@@ -140,7 +142,7 @@ function Admin() {
           </table>
         </div>
       </div>
-      
+
       {selectedUser && (
         <div style={{
           position: 'fixed',
@@ -165,20 +167,20 @@ function Admin() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2>User Details: {selectedUser.username}</h2>
-              <button 
+              <button
                 onClick={() => setSelectedUser(null)}
                 style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer' }}
               >
                 ×
               </button>
             </div>
-            
+
             <div style={{ marginTop: '20px' }}>
               <h3>Basic Information</h3>
               <p><strong>Email:</strong> {selectedUser.email}</p>
               <p><strong>Role:</strong> {selectedUser.role}</p>
               <p><strong>Account Created:</strong> {formatDate(selectedUser.createdAt)}</p>
-              
+
               <h3 style={{ marginTop: '20px' }}>Signup Information</h3>
               <p><strong>IP Address:</strong> {selectedUser.signupInfo?.ip || 'Unknown'}</p>
               <p><strong>Location:</strong> {selectedUser.signupInfo?.city || 'Unknown'}, {selectedUser.signupInfo?.region || 'Unknown'}, {selectedUser.signupInfo?.country || 'Unknown'}</p>
@@ -186,7 +188,7 @@ function Admin() {
               <p><strong>Operating System:</strong> {selectedUser.signupInfo?.os || 'Unknown'}</p>
               <p><strong>Device:</strong> {selectedUser.signupInfo?.device || 'Unknown'}</p>
               <p><strong>Signup Date:</strong> {selectedUser.signupInfo?.signupDate ? formatDate(selectedUser.signupInfo.signupDate) : 'N/A'}</p>
-              
+
               {selectedUser.lastLogin && (
                 <>
                   <h3 style={{ marginTop: '20px' }}>Last Login</h3>
