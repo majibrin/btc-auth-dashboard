@@ -1,14 +1,14 @@
 import geoip from 'geoip-lite';
-import useragent from 'useragent';
+import DeviceDetector from 'device-detector-js';
 
 /**
  * Normalizes IP addresses and extracts geolocation/browser data.
  */
 export const parseUserInfo = (req) => {
   // 1. Precise IP Extraction
-  let ip = req.headers['x-forwarded-for']?.split(',')[0] || 
-           req.socket?.remoteAddress || 
-           req.connection?.remoteAddress || 
+  let ip = req.headers['x-forwarded-for']?.split(',')[0] ||
+           req.socket?.remoteAddress ||
+           req.connection?.remoteAddress ||
            '8.8.8.8';
 
   // Normalize IPv6 mapped IPv4 addresses
@@ -19,27 +19,41 @@ export const parseUserInfo = (req) => {
   const lookupIp = isLocal ? '8.8.8.8' : ip;
 
   try {
-    // 2. Real GeoIP Lookup (Actually using the library)
+    // 2. Real GeoIP Lookup
     const geo = geoip.lookup(lookupIp);
 
-    // 3. Robust User Agent Parsing
+    // 3. ROBUST Device Detection with device-detector-js
     const rawAgent = req.headers['user-agent'] || '';
-    const agent = useragent.parse(rawAgent);
+    const deviceDetector = new DeviceDetector();
+    const deviceResult = deviceDetector.parse(rawAgent);
+    
+    // Format device info
+    let deviceDisplay = 'Desktop/Unknown';
+    if (deviceResult.device?.model) {
+      deviceDisplay = `${deviceResult.device.brand || ''} ${deviceResult.device.model}`.trim();
+    } else if (deviceResult.device?.type) {
+      deviceDisplay = deviceResult.device.type;
+    }
 
     return {
       ip,
       isLocal,
-      // Map library data with logical fallbacks
+      // Geolocation
       country: geo?.country || 'Unknown',
       city: geo?.city || 'Unknown',
       region: geo?.region || 'Unknown',
       timezone: geo?.timezone || 'UTC',
-      ll: geo?.ll || [0, 0], // Latitude/Longitude
+      ll: geo?.ll || [0, 0],
       
-      // UA Details
-      browser: agent.family !== 'Other' ? agent.toAgent() : 'Unknown',
-      os: agent.os.family !== 'Other' ? agent.os.toString() : 'Unknown',
-      device: agent.device.family !== 'Other' ? agent.device.toString() : 'Desktop/Unknown',
+      // Device Details
+      browser: deviceResult.client?.name || 'Unknown',
+      browserVersion: deviceResult.client?.version || '',
+      os: deviceResult.os?.name || 'Unknown',
+      osVersion: deviceResult.os?.version || '',
+      device: deviceDisplay,
+      deviceBrand: deviceResult.device?.brand || 'Unknown',
+      deviceModel: deviceResult.device?.model || 'Unknown',
+      deviceType: deviceResult.device?.type || 'desktop',
       
       userAgent: rawAgent,
       timestamp: new Date().toISOString()
@@ -52,7 +66,8 @@ export const parseUserInfo = (req) => {
       country: 'Unknown',
       city: 'Unknown',
       browser: 'Error Fallback',
-      os: 'Unknown'
+      os: 'Unknown',
+      device: 'Desktop/Unknown'
     };
   }
 };
