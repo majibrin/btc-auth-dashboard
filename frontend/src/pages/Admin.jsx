@@ -1,4 +1,4 @@
-
+import API_BASE_URL from '../config/api.js';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -30,8 +30,8 @@ function Admin() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post(`${API_BASE_URL}/admin/users`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await axios.post(`${API_BASE_URL}/auth/admin/users`, {}, 
+      { headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(res.data.users);
     } catch (err) {
