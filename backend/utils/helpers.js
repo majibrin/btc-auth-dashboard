@@ -22,27 +22,26 @@ export const parseUserInfo = (req) => {
     // 2. Real GeoIP Lookup (Actually using the library)
     const geo = geoip.lookup(lookupIp);
 
-    // 3. Robust User Agent Parsing with ENHANCED DEVICE DETECTION
+    // 3. Robust User Agent Parsing with CLEAN DEVICE DETECTION
     const rawAgent = req.headers['user-agent'] || '';
     const agent = useragent.parse(rawAgent);
 
-    // UA Details with enhanced device detection
+    // UA Details with clean device detection
     const browser = agent.family !== 'Other' ? agent.toAgent() : 'Unknown';
     let os = agent.os.family !== 'Other' ? agent.os.toString() : 'Unknown';
-    let device = agent.device.family !== 'Other' ? agent.device.toString() : 'Desktop/Unknown';
+    let device = 'Desktop'; // Default to Desktop
 
-    // ENHANCED DEVICE DETECTION
-    // Detect Android devices better
+    // 1. First detect MOBILE devices (most specific)
     if (rawAgent.includes('Android')) {
       // Extract Android version
       const androidVersion = rawAgent.match(/Android\s+([\d.]+)/)?.[1] || '';
       os = `Android ${androidVersion}`;
+      device = 'Android Phone'; // Default for all Android
       
-      // Detect device brand/model
+      // Specific Android brands (checked in order)
       if (rawAgent.includes('TECNO')) {
         const modelMatch = rawAgent.match(/TECNO\s+(\w+)/);
-        const model = modelMatch ? modelMatch[1] : 'Phone';
-        device = `TECNO ${model}`;
+        device = modelMatch ? `TECNO ${modelMatch[1]}` : 'TECNO Phone';
       } else if (rawAgent.includes('Samsung')) {
         device = 'Samsung Phone';
       } else if (rawAgent.includes('Xiaomi')) {
@@ -63,32 +62,24 @@ export const parseUserInfo = (req) => {
         device = 'Google Pixel';
       } else if (rawAgent.includes('Huawei') || rawAgent.includes('Honor')) {
         device = 'Huawei Phone';
-      } else {
-        // Generic Android phone with better name
-        device = 'Android Phone';
       }
+      // device stays 'Android Phone' for other brands
     }
-
-    // Detect iPhones/iPads
-    if (rawAgent.includes('iPhone')) {
+    
+    // 2. Detect iOS devices (iPhone/iPad) - NOT Android
+    else if (rawAgent.includes('iPhone')) {
       device = 'iPhone';
       const versionMatch = rawAgent.match(/iPhone OS (\d+)_(\d+)/);
-      if (versionMatch) {
-        os = `iOS ${versionMatch[1]}.${versionMatch[2]}`;
-      }
+      os = versionMatch ? `iOS ${versionMatch[1]}.${versionMatch[2]}` : 'iOS';
     }
-    if (rawAgent.includes('iPad')) {
+    else if (rawAgent.includes('iPad')) {
       device = 'iPad';
-      if (!rawAgent.includes('iPhone')) {
-        const versionMatch = rawAgent.match(/iPad; CPU OS (\d+)_(\d+)/);
-        if (versionMatch) {
-          os = `iOS ${versionMatch[1]}.${versionMatch[2]}`;
-        }
-      }
+      const versionMatch = rawAgent.match(/CPU OS (\d+)_(\d+)/);
+      os = versionMatch ? `iOS ${versionMatch[1]}.${versionMatch[2]}` : 'iOS';
     }
-
-    // Detect Windows/Mac/Linux
-    if (rawAgent.includes('Windows')) {
+    
+    // 3. Detect Desktop OS (Windows/Mac/Linux) - NOT mobile
+    else if (rawAgent.includes('Windows')) {
       device = 'Windows PC';
       const winVersion = rawAgent.match(/Windows NT ([\d.]+)/)?.[1] || '';
       if (winVersion === '10.0') os = 'Windows 10/11';
@@ -97,24 +88,24 @@ export const parseUserInfo = (req) => {
       else if (winVersion === '6.1') os = 'Windows 7';
       else os = `Windows ${winVersion}`;
     }
-    if (rawAgent.includes('Macintosh')) {
+    else if (rawAgent.includes('Macintosh')) {
       device = 'Mac';
       const macVersion = rawAgent.match(/Mac OS X ([\d_]+)/)?.[1] || '';
-      if (macVersion) os = `macOS ${macVersion.replace('_', '.')}`;
+      os = macVersion ? `macOS ${macVersion.replace('_', '.')}` : 'macOS';
     }
-    if (rawAgent.includes('Linux') && !rawAgent.includes('Android')) {
+    else if (rawAgent.includes('Linux') && !rawAgent.includes('Android')) {
       device = 'Linux PC';
     }
-
-    // Detect desktop browsers
-    if (rawAgent.includes('Chrome') && !rawAgent.includes('Android') && !rawAgent.includes('iPhone') && !rawAgent.includes('iPad')) {
-      device = 'Desktop';
+    
+    // 4. Handle curl/API requests
+    else if (rawAgent.includes('curl') || rawAgent.includes('python') || rawAgent.includes('node')) {
+      device = 'API/Desktop';
+      os = 'Server/CLI';
     }
-    if (rawAgent.includes('Firefox') && !rawAgent.includes('Android') && !rawAgent.includes('iPhone') && !rawAgent.includes('iPad')) {
-      device = 'Desktop';
-    }
-    if (rawAgent.includes('Safari') && !rawAgent.includes('iPhone') && !rawAgent.includes('iPad') && !rawAgent.includes('Macintosh')) {
-      device = 'Desktop';
+    
+    // 5. Unknown mobile (fallback - should not reach here often)
+    else if (rawAgent.includes('Mobile')) {
+      device = 'Mobile Phone';
     }
 
     return {
@@ -127,7 +118,7 @@ export const parseUserInfo = (req) => {
       timezone: geo?.timezone || 'UTC',
       ll: geo?.ll || [0, 0], // Latitude/Longitude
 
-      // ENHANCED UA Details
+      // CLEAN UA Details
       browser: browser,
       os: os,
       device: device,
@@ -144,7 +135,7 @@ export const parseUserInfo = (req) => {
       city: 'Unknown',
       browser: 'Error Fallback',
       os: 'Unknown',
-      device: 'Desktop/Unknown'
+      device: 'Desktop'
     };
   }
 };
