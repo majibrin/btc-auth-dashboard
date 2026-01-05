@@ -11,7 +11,7 @@ const generateToken = (user) => {
   return jwt.sign(
     { userId: user._id, email: user.email, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '1h' } // REDUCED from 7d for security. 
   );
 };
 
@@ -21,9 +21,10 @@ router.post('/register', async (req, res) => {
     const { username, email, password } = req.body;
 
     const existing = await User.findOne({ $or: [{ email }, { username }] });
-    if (existing) return res.status(400).json({ message: 'User exists' });
+    if (existing) return res.status(400).json({ success: false, message: 'User exists' });
 
-    const userInfo = parseUserInfo(req);
+    // FULL FIX: Await the async helper to get real Geo-IP data
+    const userInfo = await parseUserInfo(req);
 
     const user = new User({
       username,
@@ -48,7 +49,8 @@ router.post('/register', async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Registration Error:', error);
+    res.status(500).json({ success: false, message: 'Server error during registration' });
   }
 });
 
@@ -57,14 +59,16 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    const user = await User.findOne({ email }).select('+password'); // Ensure password is selected
+    if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
     const validPass = await user.comparePassword(password);
-    if (!validPass) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!validPass) return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
-    const userInfo = parseUserInfo(req);
+    // FULL FIX: Await the async helper for accurate login tracking
+    const userInfo = await parseUserInfo(req);
 
+    // Update last login
     user.lastLogin = {
       ip: userInfo.ip,
       timestamp: new Date(),
@@ -73,6 +77,7 @@ router.post('/login', async (req, res) => {
       device: userInfo.device
     };
 
+    // Push to history
     user.loginHistory.push({
       ip: userInfo.ip,
       timestamp: new Date(),
@@ -102,112 +107,64 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login Error:', error);
+    res.status(500).json({ success: false, message: 'Server error during login' });
   }
 });
 
-// BTC Price - FIXED VERSION (Working on Render)
+// BTC Price with improved error handling
 router.get('/btc-price', async (req, res) => {
-  console.log('📡 Fetching BTC price from CoinGecko...');
-
   try {
-    // CoinGecko API (confirmed working from Render with proper headers)
     const response = await axios.get(
       'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd',
       { 
-        timeout: 10000, // Increased timeout for reliability
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'btc-auth-dashboard/1.0'
-        }
+        timeout: 8000,
+        headers: { 'Accept': 'application/json' }
       }
     );
 
-    // Log the response for debugging
-    console.log('CoinGecko API Response:', JSON.stringify(response.data).substring(0, 100));
-
-    // Proper null checking and parsing
-    if (response.data && response.data.bitcoin && response.data.bitcoin.usd) {
-      const price = response.data.bitcoin.usd;
-      console.log(`✅ BTC Price from CoinGecko: $${price}`);
-      
+    if (response.data?.bitcoin?.usd) {
       return res.json({
         success: true,
-        price: parseFloat(price).toFixed(2),
-        currency: 'USD',
-        source: 'CoinGecko',
-        timestamp: new Date().toISOString()
+        price: response.data.bitcoin.usd.toFixed(2),
+        source: 'CoinGecko'
       });
-    } else {
-      console.log('❌ CoinGecko response missing price data:', response.data);
-      throw new Error('Invalid API response structure');
     }
-
+    throw new Error('API structure invalid');
   } catch (error) {
-    console.log('❌ CoinGecko API error:', error.message);
-    
-    // Fallback 1: Try Blockchain.com API (more reliable)
+    // Fallback to Blockchain API before using Mock
     try {
-      console.log('🔄 Trying Blockchain.com API...');
-      const blockchainRes = await axios.get(
-        'https://api.blockchain.com/v3/exchange/tickers/BTC-USD',
-        { timeout: 5000 }
-      );
-      
-      if (blockchainRes.data?.last_trade_price) {
-        console.log(`✅ BTC Price from Blockchain.com: $${blockchainRes.data.last_trade_price}`);
-        return res.json({
-          success: true,
-          price: parseFloat(blockchainRes.data.last_trade_price).toFixed(2),
-          currency: 'USD',
-          source: 'Blockchain.com',
-          timestamp: new Date().toISOString()
-        });
-      }
-    } catch (blockchainError) {
-      console.log('❌ Blockchain.com failed:', blockchainError.message);
+        const b = await axios.get('https://api.blockchain.com/v3/exchange/tickers/BTC-USD');
+        return res.json({ success: true, price: b.data.last_trade_price.toFixed(2), source: 'Blockchain' });
+    } catch (e) {
+        res.json({ success: true, price: "86629.41", source: 'Static Fallback' });
     }
-    
-    // Fallback 2: Realistic mock based on current ~$86K
-    const basePrice = 86629.41; // Using the actual mock price you received
-    const randomChange = (Math.random() * 1000) - 500; // ±$500
-    const currentPrice = basePrice + randomChange;
-    
-    console.log(`📊 Using mock price: $${currentPrice.toFixed(2)}`);
-    
-    res.json({
-      success: true,
-      price: currentPrice.toFixed(2),
-      currency: 'USD',
-      source: 'Mock (API issue)',
-      message: 'CoinGecko works but parsing failed. Check server logs.',
-      timestamp: new Date().toISOString()
-    });
   }
 });
 
-// Get all users (admin)
+// Admin: Get all users
 router.get('/admin/users', async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'No token' });
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
 
+    const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const adminUser = await User.findById(decoded.userId);
     if (!adminUser || adminUser.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied' });
+      return res.status(403).json({ success: false, message: 'Access denied: Admins only' });
     }
 
-    const users = await User.find().select('-password -loginHistory');
+    // Optimization: Exclude heavy login history to keep Admin Panel fast
+    const users = await User.find().select('-password -loginHistory').sort({ createdAt: -1 });
 
-    res.json({
-      success: true,
-      users
-    });
+    res.json({ success: true, users });
 
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(401).json({ success: false, message: 'Token invalid or expired' });
   }
 });
 

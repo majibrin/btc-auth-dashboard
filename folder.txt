@@ -1,0 +1,23 @@
+/btc-dashboard-app
+├── 📁 backend
+│   ├── 📁 controllers       # Logic for your routes (Auth, BTC)
+│   ├── 📁 middleware        # Auth checks
+│   ├── 📁 routes            # API endpoints
+│   ├── 📁 utils
+│   │   └── 📄 helpers.js    # The Tecno-friendly UA parser we fixed!
+│   ├── 📄 .env              # Secrets (API keys, DB URI)
+│   ├── 📄 index.js          # Entry point (Express app)
+│   └── 📄 package.json
+│
+├── 📁 frontend
+│   ├── 📁 public
+│   ├── 📁 src
+│   │   ├── 📁 components
+│   │   │   └── 📄 Dashboard.jsx # The responsive icon-based UI
+│   │   ├── 📁 assets        # CSS, Images
+│   │   ├── 📄 App.jsx       # Routing (Login, Dashboard)
+│   │   └── 📄 main.jsx
+│   ├── 📄 package.json
+│   └── 📄 vite.config.js
+│
+└── 📄 README.md

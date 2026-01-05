@@ -1,207 +1,214 @@
-import API_BASE_URL from '../config/api';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import API_BASE_URL from '../config/api';
 
-function Admin() {
+/**
+ * Admin Component
+ * Features: Search, Responsive View Toggle, Global State Management
+ */
+const Admin = () => {
   const [users, setUsers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [error, setError] = useState(null);
+  
   const navigate = useNavigate();
 
-  useEffect(() => {
+  // 1. Authorization & Role Check
+  const checkAuth = useCallback(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
 
     if (!token || !userData) {
       navigate('/login');
-      return;
+      return null;
     }
 
-    const user = JSON.parse(userData);
-    if (user.role !== 'admin') {
-      navigate('/dashboard');
-      return;
+    try {
+      const user = JSON.parse(userData);
+      if (user.role !== 'admin') {
+        navigate('/dashboard');
+        return null;
+      }
+      return token;
+    } catch (e) {
+      navigate('/login');
+      return null;
     }
-
-    fetchUsers();
   }, [navigate]);
 
-  const fetchUsers = async () => {
+  // 2. Data Fetching
+  const fetchUsers = useCallback(async () => {
+    const token = checkAuth();
+    if (!token) return;
+
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      // FIXED: Correct axios.get() syntax
       const res = await axios.get(`${API_BASE_URL}/auth/admin/users`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      console.log('Admin API Response:', res.data); // Debug log
-      setUsers(res.data.users);
+      // We expect { success: true, users: [...] } from the updated backend
+      setUsers(res.data.users || []);
+      setError(null);
     } catch (err) {
-      console.log('Failed to fetch users:', err.response?.data || err.message);
+      setError(err.response?.data?.message || "Failed to fetch users");
+      console.error("Admin Fetch Error:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [checkAuth]);
 
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // 3. Filtering Logic
+  const filteredUsers = users.filter(user => 
+    user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // 4. Helper Functions
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
   };
 
-  const handleUserClick = (user) => {
-    setSelectedUser(user);
-  };
+  const formatDate = (date) => date ? new Date(date).toLocaleString() : 'N/A';
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="admin-loader">Loading User Database...</div>;
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Admin Panel</h1>
-        <div>
-          <button
-            onClick={() => navigate('/dashboard')}
-            style={{ marginRight: '10px', padding: '8px 15px' }}
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={handleLogout}
-            style={{ padding: '8px 15px', background: '#dc3545', color: 'white', border: 'none' }}
-          >
-            Logout
-          </button>
+    <div className="admin-page-container">
+      {/* Top Navigation Bar */}
+      <nav className="admin-nav">
+        <div className="nav-brand">
+          <h1>Admin Control Panel</h1>
+          <span className="user-count">Total: {users.length}</span>
         </div>
+        <div className="nav-actions">
+          <button onClick={() => navigate('/dashboard')} className="btn-dash">User Dashboard</button>
+          <button onClick={handleLogout} className="btn-logout">Logout</button>
+        </div>
+      </nav>
+
+      {/* Control Bar: Search & Refresh */}
+      <div className="admin-controls">
+        <div className="search-box">
+          <input 
+            type="text" 
+            placeholder="Search by username or email..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <button onClick={fetchUsers} className="btn-refresh">Refresh List</button>
       </div>
 
-      <div style={{ marginTop: '20px' }}>
-        <h2>All Users ({users.length})</h2>
-        <button
-          onClick={fetchUsers}
-          style={{ marginBottom: '20px', padding: '8px 15px', background: '#007bff', color: 'white', border: 'none' }}
-        >
-          Refresh Users
-        </button>
+      {error && <div className="error-banner">{error}</div>}
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <main className="admin-main">
+        {/* VIEW 1: Desktop Table (Hidden on Mobile via CSS) */}
+        <div className="desktop-view">
+          <table className="user-table">
             <thead>
-              <tr style={{ background: '#f8f9fa' }}>
-                <th style={{ padding: '12px', border: '1px solid #dee2e6', textAlign: 'left' }}>Username</th>
-                <th style={{ padding: '12px', border: '1px solid #dee2e6', textAlign: 'left' }}>Email</th>
-                <th style={{ padding: '12px', border: '1px solid #dee2e6', textAlign: 'left' }}>Role</th>
-                <th style={{ padding: '12px', border: '1px solid #dee2e6', textAlign: 'left' }}>Location</th>
-                <th style={{ padding: '12px', border: '1px solid #dee2e6', textAlign: 'left' }}>Device</th>
-                <th style={{ padding: '12px', border: '1px solid #dee2e6', textAlign: 'left' }}>Signup Date</th>
-                <th style={{ padding: '12px', border: '1px solid #dee2e6', textAlign: 'left' }}>Actions</th>
+              <tr>
+                <th>User Details</th>
+                <th>Role</th>
+                <th>Location</th>
+                <th>Device / OS</th>
+                <th>Joined</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
-                <tr key={user._id} style={{ borderBottom: '1px solid #dee2e6' }}>
-                  <td style={{ padding: '12px' }}>{user.username}</td>
-                  <td style={{ padding: '12px' }}>{user.email}</td>
-                  <td style={{ padding: '12px' }}>
-                    <span style={{
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      background: user.role === 'admin' ? '#6f42c1' : '#007bff',
-                      color: 'white',
-                      fontSize: '12px'
-                    }}>
-                      {user.role}
-                    </span>
+              {filteredUsers.map(user => (
+                <tr key={user._id}>
+                  <td>
+                    <div className="primary-text">{user.username}</div>
+                    <div className="secondary-text">{user.email}</div>
                   </td>
-                  <td style={{ padding: '12px' }}>
-                    {user.signupInfo?.country || 'Unknown'}
-                    {user.signupInfo?.city && `, ${user.signupInfo.city}`}
+                  <td>
+                    <span className={`role-badge ${user.role}`}>{user.role}</span>
                   </td>
-                  <td style={{ padding: '12px' }}>
-                    <div>{user.signupInfo?.browser || 'Unknown'}</div>
-                    <small style={{ color: '#6c757d' }}>{user.signupInfo?.os || 'Unknown'}</small>
+                  <td>
+                    {user.signupInfo?.city || 'Unknown'}, {user.signupInfo?.country || '??'}
                   </td>
-                  <td style={{ padding: '12px' }}>
-                    {user.signupInfo?.signupDate ? formatDate(user.signupInfo.signupDate) : 'N/A'}
+                  <td>
+                    <div className="device-info">{user.signupInfo?.device || 'Unknown'}</div>
+                    <div className="os-info">{user.signupInfo?.os || 'Unknown'}</div>
                   </td>
-                  <td style={{ padding: '12px' }}>
-                    <button
-                      onClick={() => handleUserClick(user)}
-                      style={{ padding: '6px 12px', marginRight: '5px', background: '#17a2b8', color: 'white', border: 'none' }}
-                    >
-                      View
-                    </button>
+                  <td>{formatDate(user.signupInfo?.signupDate)}</td>
+                  <td>
+                    <button onClick={() => setSelectedUser(user)} className="btn-details">View full log</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
 
-      {selectedUser && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'white',
-            padding: '30px',
-            borderRadius: '8px',
-            maxWidth: '600px',
-            width: '90%',
-            maxHeight: '80vh',
-            overflowY: 'auto'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2>User Details: {selectedUser.username}</h2>
-              <button
-                onClick={() => setSelectedUser(null)}
-                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer' }}
-              >
-                ×
-              </button>
+        {/* VIEW 2: Mobile Card List (Hidden on Desktop via CSS) */}
+        <div className="mobile-view">
+          {filteredUsers.map(user => (
+            <div key={user._id} className="user-card" onClick={() => setSelectedUser(user)}>
+              <div className="card-row">
+                <span className="card-username">{user.username}</span>
+                <span className={`role-badge ${user.role}`}>{user.role}</span>
+              </div>
+              <div className="card-email">{user.email}</div>
+              <div className="card-footer">
+                <span>{user.signupInfo?.city || 'Unknown'}</span>
+                <span>{user.signupInfo?.device || 'Mobile'}</span>
+              </div>
             </div>
+          ))}
+        </div>
+      </main>
 
-            <div style={{ marginTop: '20px' }}>
-              <h3>Basic Information</h3>
-              <p><strong>Email:</strong> {selectedUser.email}</p>
-              <p><strong>Role:</strong> {selectedUser.role}</p>
-              <p><strong>Account Created:</strong> {formatDate(selectedUser.createdAt)}</p>
+      {/* USER DETAIL MODAL */}
+      {selectedUser && (
+        <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
+          <div className="modal-body" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Security Profile: {selectedUser.username}</h2>
+              <button className="close-x" onClick={() => setSelectedUser(null)}>&times;</button>
+            </div>
+            
+            <div className="modal-grid">
+              <section>
+                <h3>Account Info</h3>
+                <p><strong>ID:</strong> {selectedUser._id}</p>
+                <p><strong>Status:</strong> {selectedUser.isActive ? 'Active' : 'Banned'}</p>
+                <p><strong>Registered:</strong> {formatDate(selectedUser.createdAt)}</p>
+              </section>
 
-              <h3 style={{ marginTop: '20px' }}>Signup Information</h3>
-              <p><strong>IP Address:</strong> {selectedUser.signupInfo?.ip || 'Unknown'}</p>
-              <p><strong>Location:</strong> {selectedUser.signupInfo?.city || 'Unknown'}, {selectedUser.signupInfo?.region || 'Unknown'}, {selectedUser.signupInfo?.country || 'Unknown'}</p>
-              <p><strong>Browser:</strong> {selectedUser.signupInfo?.browser || 'Unknown'}</p>
-              <p><strong>Operating System:</strong> {selectedUser.signupInfo?.os || 'Unknown'}</p>
-              <p><strong>Device:</strong> {selectedUser.signupInfo?.device || 'Unknown'}</p>
-              <p><strong>Signup Date:</strong> {selectedUser.signupInfo?.signupDate ? formatDate(selectedUser.signupInfo.signupDate) : 'N/A'}</p>
+              <section>
+                <h3>Signup Metadata</h3>
+                <p><strong>IP:</strong> {selectedUser.signupInfo?.ip}</p>
+                <p><strong>Browser:</strong> {selectedUser.signupInfo?.browser}</p>
+                <p><strong>OS:</strong> {selectedUser.signupInfo?.os}</p>
+                <p><strong>Timezone:</strong> {selectedUser.signupInfo?.timezone}</p>
+              </section>
 
-              {selectedUser.lastLogin && (
-                <>
-                  <h3 style={{ marginTop: '20px' }}>Last Login</h3>
-                  <p><strong>Last Login IP:</strong> {selectedUser.lastLogin.ip || 'Unknown'}</p>
-                  <p><strong>Last Login Time:</strong> {selectedUser.lastLogin.timestamp ? formatDate(selectedUser.lastLogin.timestamp) : 'Never'}</p>
-                </>
-              )}
+              <section className="full-width">
+                <h3>Last Login Summary</h3>
+                <p><strong>Timestamp:</strong> {formatDate(selectedUser.lastLogin?.timestamp)}</p>
+                <p><strong>IP:</strong> {selectedUser.lastLogin?.ip || 'N/A'}</p>
+              </section>
+            </div>
+            
+            <div className="modal-footer">
+               <button className="btn-close" onClick={() => setSelectedUser(null)}>Close Profile</button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-}
+};
 
 export default Admin;

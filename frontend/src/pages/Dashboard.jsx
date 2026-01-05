@@ -1,27 +1,30 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { 
-  TrendingUp, User, Settings, Shield, Bell, 
-  RefreshCw, BarChart3, LogOut, LayoutDashboard, 
-  ChevronRight, Info, Crown, Menu 
+import {                                       TrendingUp, User, Settings, Shield, Bell,
+  RefreshCw, BarChart3, LogOut, LayoutDashboard,
+  ChevronRight, Info, Crown, Menu
 } from 'lucide-react';
 
 function Dashboard() {
   const [btcPrice, setBtcPrice] = useState(null);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+  const [loading, setLoading] = useState(true);                                             const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
+
+  // FIX: Define the Backend URL based on the environment
+  const API_BASE = window.location.hostname === 'localhost' 
+    ? 'http://localhost:5000' 
+    : 'https://your-backend-api.vercel.app'; // <--- REPLACE THIS WITH YOUR ACTUAL BACKEND URL
 
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
 
@@ -32,14 +35,24 @@ function Dashboard() {
 
     setUser(JSON.parse(userData));
     fetchBTCPrice();
-    
+
     return () => window.removeEventListener('resize', checkMobile);
   }, [navigate]);
 
   const fetchBTCPrice = async () => {
     try {
-      const res = await axios.get('/api/auth/btc-price');
+      // FIX: Use the API_BASE variable here
+      const res = await axios.get(`${API_BASE}/api/auth/btc-price`);
       setBtcPrice(res.data.price);
+      
+      // Update device/location info from backend if available
+      if (res.data.userInfo) {
+        setUser(prev => ({
+          ...prev,
+          device: res.data.userInfo.device,
+          location: `${res.data.userInfo.city}, ${res.data.userInfo.country}`
+        }));
+      }
     } catch (err) {
       console.log('Failed to fetch BTC price');
       setBtcPrice('45,000.00');
@@ -80,19 +93,19 @@ function Dashboard() {
               BTC Dashboard
             </h1>
             {isMobile && (
-              <button onClick={() => alert('Menu coming soon!')} style={styles.menuButton}>
+              <button onClick={() => fetchBTCPrice()} style={styles.menuButton}>
                 <Menu size={24} />
               </button>
             )}
           </div>
-          
+
           <div style={styles.userSection}>
             <div style={styles.userInfo}>
               <div style={styles.userGreeting}>
                 <span style={styles.welcomeText}>Welcome,</span>
                 <strong style={styles.username}>
-                  {isMobile && user?.username?.length > 10 
-                    ? user.username.substring(0, 8) + '...' 
+                  {isMobile && user?.username?.length > 10
+                    ? user.username.substring(0, 8) + '...'
                     : user?.username}
                 </strong>
               </div>
@@ -103,7 +116,7 @@ function Dashboard() {
                 {user?.role}
               </span>
             </div>
-            
+
             <div style={styles.buttonGroup}>
               {user?.role === 'admin' && (
                 <button onClick={() => navigate('/admin')} style={styles.adminButton}>
@@ -129,7 +142,7 @@ function Dashboard() {
             </h2>
             <span style={styles.btcBadge}>LIVE</span>
           </div>
-          
+
           <div style={styles.priceContainer}>
             <span style={styles.currency}>$</span>
             <span style={styles.price}>
@@ -137,11 +150,11 @@ function Dashboard() {
             </span>
             <span style={styles.currencyCode}>USD</span>
           </div>
-          
+
           <p style={styles.btcSubtitle}>
             {isMobile ? 'Current BTC/USD' : 'Current BTC/USD market price'}
           </p>
-          
+
           <div style={styles.btcActions}>
             <button onClick={fetchBTCPrice} style={styles.refreshButton}>
               <RefreshCw size={18} />
@@ -152,7 +165,7 @@ function Dashboard() {
               {!isMobile && 'History'}
             </button>
           </div>
-          
+
           {!isMobile && (
             <div style={styles.updateTime}>
               Updated: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -166,7 +179,7 @@ function Dashboard() {
               <User size={18} style={{marginRight: '8px'}} />
               {isMobile ? 'Profile' : 'User Profile'}
             </h3>
-            
+
             <div style={styles.infoGrid}>
               <div style={styles.infoItem}>
                 <span style={styles.infoLabel}>Username</span>
@@ -177,19 +190,15 @@ function Dashboard() {
                 <span style={styles.emailText}>{formatEmail(user?.email)}</span>
               </div>
               <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Account</span>
-                <span style={{...styles.infoValue, color: user?.role === 'admin' ? '#6f42c1' : '#007bff'}}>
-                  {user?.role?.toUpperCase()}
-                </span>
+                <span style={styles.infoLabel}>Device</span>
+                <span style={styles.infoValue}>{user?.device || 'Smartphone'}</span>
               </div>
               <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>{isMobile ? 'Since' : 'Member Since'}</span>
-                <span style={styles.infoValue}>
-                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Recent'}
-                </span>
+                <span style={styles.infoLabel}>Location</span>
+                <span style={styles.infoValue}>{user?.location || 'Nigeria'}</span>
               </div>
             </div>
-            
+
             <button onClick={() => navigate('/profile')} style={styles.profileButton}>
               View Full Profile
               <ChevronRight size={16} />
@@ -201,7 +210,7 @@ function Dashboard() {
               <RefreshCw size={18} style={{marginRight: '8px'}} />
               {isMobile ? 'Actions' : 'Quick Actions'}
             </h3>
-            
+
             <div style={styles.actionsList}>
               <button onClick={() => navigate('/settings')} style={styles.actionButton}>
                 <Settings size={18} /> {isMobile ? 'Settings' : 'Account Settings'}
@@ -255,25 +264,22 @@ function Dashboard() {
 }
 
 const styles = {
-  // Styles are largely preserved but updated for icon spacing and better mobile flow
-//  container: { minHeight: '100vh', backgroundColor: '#f4f7f9', fontFamily: 'system-ui, sans-serif' },
-  container: { 
-  minHeight: '100vh', 
-  backgroundColor: '#f4f7f9', 
+  container: {
+  minHeight: '100vh',
+  backgroundColor: '#f4f7f9',
   fontFamily: 'system-ui, sans-serif',
   width: '100%',
-  overflowX: 'hidden' 
+  overflowX: 'hidden'
 },
   loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh' },
   loadingSpinner: { width: '40px', height: '40px', border: '4px solid #ddd', borderTop: '4px solid #007bff', borderRadius: '50%', animation: 'spin 1s linear infinite' },
   header: { backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', padding: '1rem', position: 'sticky', top: 0, zIndex: 100 },
-// headerContent: { maxWidth: '1100px', margin: '0 auto', padding: '0 20px' },
-  headerContent: { 
-  maxWidth: '1100px', 
+  headerContent: {
+  maxWidth: '1100px',
   margin: '0 auto',
   padding: '0 15px',
   width: '100%',
-  boxSizing: 'border-box' 
+  boxSizing: 'border-box'
 },
   headerTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   title: { margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center' },
@@ -285,13 +291,12 @@ const styles = {
   buttonGroup: { display: 'flex', gap: '8px' },
   adminButton: { padding: '8px 12px', backgroundColor: '#6f42c1', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' },
   logoutButton: { padding: '8px 12px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' },
- // main: { maxWidth: '1100px', margin: '20px auto', padding: '0 20px' },
-  main: { 
-  maxWidth: '1100px', 
-  margin: '20px auto', 
+  main: {
+  maxWidth: '1100px',
+  margin: '20px auto',
   padding: '0 15px',
   width: '100%',
-  boxSizing: 'border-box' 
+  boxSizing: 'border-box'
 },
   btcCard: { backgroundColor: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', border: '1px solid #edf2f7', marginBottom: '20px' },
   btcHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
@@ -303,12 +308,11 @@ const styles = {
   btcActions: { display: 'flex', gap: '10px' },
   refreshButton: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#007bff', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' },
   historyButton: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: '8px', cursor: 'pointer' },
- // grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' },
-  grid: { 
-  display: 'grid', 
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', 
+  grid: {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
   gap: '20px',
-  width: '100%' 
+  width: '100%'
   },
   card: { backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #edf2f7' },
   cardTitle: { margin: '0 0 16px 0', fontSize: '1rem', display: 'flex', alignItems: 'center', borderBottom: '1px solid #f7fafc', paddingBottom: '10px' },
