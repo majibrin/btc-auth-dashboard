@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/api';
-import Admin from './Admin.js';
+import Admin from './Admin.css';
 
 /**
  * Admin Component
